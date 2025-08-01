@@ -1,52 +1,210 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-  <meta charset="UTF-8" />
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
   <title>BoogGPT 🐱</title>
+  <!-- Google Font -->
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap' rel='stylesheet'>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
-    .msg { margin-bottom: 1rem; }
-    .user { color: blue; }
-    .boog { color: purple; font-weight: bold; }
-    .input-area { margin-top: 20px; display: flex; gap: 10px; }
+    :root {
+      --bg: #f9fafb;
+      --bg-alt: #ffffff;
+      --accent: #6366f1; /* indigo-500 */
+      --user-bg: #e0e7ff; /* indigo-100 */
+      --boog-bg: #fbe7ff; /* fuchsia-100 */
+      --text-main: #111827; /* gray-900 */
+    }
+
+    /* Dark‑mode values picked for adequate contrast */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827;
+        --bg-alt: #1f2937;
+        --accent: #8b5cf6;
+        --user-bg: #1e40af;
+        --boog-bg: #312e81;
+        --text-main: #f3f4f6;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Main column */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 2rem 1rem 6rem; /* bottom padding leaves room for fixed input bar */
+      flex: 1;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    select {
+      padding: 0.4rem 0.8rem;
+      font-size: 1rem;
+      border-radius: 0.375rem;
+      border: 1px solid #d1d5db;
+      background: var(--bg-alt);
+      color: var(--text-main);
+    }
+
+    /* Chat window */
+    #chat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-y: auto;
+      max-height: 60vh;
+      padding-right: 0.5rem; /* keeps last message fully visible next to scrollbar */
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      line-height: 1.4;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: var(--user-bg);
+    }
+
+    .boog {
+      align-self: flex-start;
+      background: var(--boog-bg);
+      font-weight: 600;
+    }
+
+    /* Input bar sticks to bottom of viewport */
+    .input-area {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-alt);
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.05);
+      padding: 0.75rem 1rem;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    input[type='text'] {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      background: var(--bg-alt);
+      color: var(--text-main);
+    }
+
+    button {
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #4f46e5; /* indigo-600 */
+    }
   </style>
 </head>
 <body>
-  <h1>😼 Chat with Mr. Boog</h1>
-  <label>
-    Mode:
-    <select id="mode">
-      <option value="wisdom">Wisdom</option>
-      <option value="roast">Roast</option>
-    </select>
-  </label>
-  <div id="chat"></div>
-  <div class="input-area">
-    <input type="text" id="message" placeholder="Say something..." />
-    <button onclick="sendMessage()">Send</button>
+  <div class='container'>
+    <h1>😼 BoogGPT </h1>
+    <label for='mode'>
+      Mode:
+      <select id='mode'>
+        <option value='wisdom'>Wisdom</option>
+        <option value='roast'>Roast</option>
+      </select>
+    </label>
+    <div id='chat'></div>
+  </div>
+
+  <!-- Fixed input panel -->
+  <div class='input-area'>
+    <input type='text' id='message' placeholder='Say something…' autocomplete='off'>
+    <button id='sendBtn'>Send</button>
   </div>
 
   <script>
+    const chat = document.getElementById('chat');
+    const messageInput = document.getElementById('message');
+    const sendBtn = document.getElementById('sendBtn');
+
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function appendMessage(text, cls) {
+      const div = document.createElement('div');
+      div.className = `msg ${cls}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
     function sendMessage() {
-      const message = document.getElementById("message").value;
-      const mode = document.getElementById("mode").value;
-      if (!message.trim()) return;
+      const message = messageInput.value.trim();
+      if (!message) return;
 
-      const chat = document.getElementById("chat");
-      chat.innerHTML += `<div class="msg user">You: ${message}</div>`;
-      document.getElementById("message").value = "";
+      const mode = document.getElementById('mode').value;
+      appendMessage(`You: ${message}`, 'user');
+      messageInput.value = '';
 
-      fetch("/chat", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
+      fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, mode })
       })
-      .then(res => res.json())
-      .then(data => {
-        chat.innerHTML += `<div class="msg boog">Boog: ${data.response}</div>`;
-        chat.scrollTop = chat.scrollHeight;
-      });
+        .then(res => res.json())
+        .then(data => {
+          appendMessage(`Boog: ${data.response}`, 'boog');
+        })
+        .catch(() => {
+          appendMessage('⚠️ Something went wrong.', 'boog');
+        });
     }
   </script>
 </body>
 </html>
+
