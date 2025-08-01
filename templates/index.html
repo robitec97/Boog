@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BoogGPT 🐱</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    .msg { margin-bottom: 1rem; }
+    .user { color: blue; }
+    .boog { color: purple; font-weight: bold; }
+    .input-area { margin-top: 20px; display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <h1>😼 Chat with Mr. Boog</h1>
+  <label>
+    Mode:
+    <select id="mode">
+      <option value="wisdom">Wisdom</option>
+      <option value="roast">Roast</option>
+    </select>
+  </label>
+  <div id="chat"></div>
+  <div class="input-area">
+    <input type="text" id="message" placeholder="Say something..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    function sendMessage() {
+      const message = document.getElementById("message").value;
+      const mode = document.getElementById("mode").value;
+      if (!message.trim()) return;
+
+      const chat = document.getElementById("chat");
+      chat.innerHTML += `<div class="msg user">You: ${message}</div>`;
+      document.getElementById("message").value = "";
+
+      fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ message, mode })
+      })
+      .then(res => res.json())
+      .then(data => {
+        chat.innerHTML += `<div class="msg boog">Boog: ${data.response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      });
+    }
+  </script>
+</body>
+</html>
