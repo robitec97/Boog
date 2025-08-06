@@ -1,21 +1,58 @@
+"""Boog Chat – enhanced backend with resilient AI search
+
+Changelog (2025‑08‑06)
+----------------------
+* **Resilient web search** – `search_web()` now tries a prioritized list of
+  endpoints:
+  1. `SEARCH_API_ENDPOINT` (if provided in env)
+  2. Community DuckDuckGo search proxy (vercel) – kept for backward‑compat.
+  3. Official DuckDuckGo Instant‑Answer API (`https://api.duckduckgo.com/`).
+
+  The function stops at the first endpoint that returns at least one result.
+* Graceful degrade: if an endpoint returns HTTP 404/500 or empty results, we
+  transparently try the next one before giving up.
+* Added internal `_parse_ddg_instant_answer()` helper to convert DuckDuckGo’s
+  `RelatedTopics` JSON format to our unified schema.
+
+No other changes to public behaviour.
+"""
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-import requests
-from flask import Flask, render_template, request, jsonify
+# ---------------------------------------------------------------------------
+# Optional dependency handling: try to import `requests`; fall back to urllib
+# ---------------------------------------------------------------------------
+try:
+    import requests  # type: ignore
 
+    _HAVE_REQUESTS = True
+except ModuleNotFoundError:  # Minimal slug with no extra wheels
+    import urllib.request
+    import urllib.parse
+
+    _HAVE_REQUESTS = False
+
+# ---------------------------------------------------------------------------
+# OpenAI SDK (required for AI mode)
+# ---------------------------------------------------------------------------
 try:
     import openai  # type: ignore
 except ImportError as exc:  # Fail fast if the dependency is missing
-    raise RuntimeError("openai python package is not installed –\n"
-                       "pip install openai>=1.14.0") from exc
+    raise RuntimeError(
+        "openai python package is not installed –\n"
+        "pip install openai>=1.14.0"
+    ) from exc
+
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
+app.logger.setLevel(logging.INFO)
 
 # ---------- Constants -------------------------------------------------------
 BOOG_QUOTES: Dict[str, List[str]] = {
@@ -58,35 +95,105 @@ def log_chat(user_msg: str, boog_msg: str) -> None:
             json.dump([entry], f, indent=2)
 
 
+# ---------------------- Resilient web search layer --------------------------
+
+def _http_get_json(url: str, params: Optional[Dict[str, str]] = None) -> Any:
+    """Lightweight helper to GET JSON via requests or urllib."""
+    if _HAVE_REQUESTS:
+        try:
+            resp = requests.get(url, params=params, timeout=8)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.debug("requests GET failed: %s", exc)
+            raise  # Reraise so caller can handle
+    else:
+        import urllib.request
+        import urllib.parse
+
+        full_url = url
+        if params:
+            full_url += "?" + urllib.parse.urlencode(params)
+        try:
+            with urllib.request.urlopen(full_url, timeout=8) as resp:
+                return json.loads(resp.read().decode())
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.debug("urllib GET failed: %s", exc)
+            raise
+
+
+def _parse_ddg_instant_answer(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Convert DuckDuckGo Instant‑Answer JSON to unified schema."""
+    results: List[Dict[str, str]] = []
+
+    # The structure is a bit nested; flatten RelatedTopics
+    for topic in payload.get("RelatedTopics", []):
+        # Two shapes: either contains "Text" & "FirstURL" or is a category with "Topics"
+        if "Text" in topic and "FirstURL" in topic:
+            results.append({
+                "title": topic["Text"].split(" – ")[0][:80],
+                "snippet": topic["Text"],
+                "url": topic["FirstURL"],
+            })
+        elif "Topics" in topic:
+            for sub in topic["Topics"]:
+                if "Text" in sub and "FirstURL" in sub:
+                    results.append({
+                        "title": sub["Text"].split(" – ")[0][:80],
+                        "snippet": sub["Text"],
+                        "url": sub["FirstURL"],
+                    })
+    return results
+
+
 def search_web(query: str, *, max_results: int = 5) -> List[Dict[str, str]]:
-    """Return a list of search results using a simple JSON search API.
+    """Return search results via a chain of fallback endpoints."""
+    endpoints = []
 
-    The default provider is an unofficial read-only endpoint around DuckDuckGo
-    results (no API key required).  You can point the function to a corporate
-    micro-service or SerpAPI by setting the `SEARCH_API_ENDPOINT` env var.
-    """
-    endpoint = os.getenv(
-        "SEARCH_API_ENDPOINT",
-        "https://ddg-webapp-search.vercel.app/api/search",  # Fallback
-    )
-    try:
-        resp = requests.get(endpoint, params={"q": query, "max_results": max_results}, timeout=8)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        # If the search fails we still want the conversation to continue
-        app.logger.warning("Search error: %s", exc)
-        return []
+    # 1) User‑specified micro‑service (highest priority)
+    if os.getenv("SEARCH_API_ENDPOINT"):
+        endpoints.append((os.getenv("SEARCH_API_ENDPOINT"), "generic"))
 
-    # Expected schema: { "results": [ {"title": "..", "snippet": "..", "url": ".."}, ... ] }
-    payload: Dict[str, Any] = resp.json()
-    return payload.get("results", [])[:max_results]
+    # 2) Community proxy (same schema we used before)
+    endpoints.append((
+        "https://ddg-webapp-search.vercel.app/api/search",
+        "community_proxy",
+    ))
 
+    # 3) Official DuckDuckGo Instant‑Answer API
+    endpoints.append(("https://api.duckduckgo.com/", "instant_answer"))
+
+    for url, kind in endpoints:
+        try:
+            if kind == "generic" or kind == "community_proxy":
+                payload = _http_get_json(url, params={"q": query, "max_results": str(max_results)})
+                results = payload.get("results", [])
+            elif kind == "instant_answer":
+                payload = _http_get_json(url, params={"q": query, "format": "json"})
+                results = _parse_ddg_instant_answer(payload)
+            else:
+                results = []
+
+            if results:  # success!
+                return results[:max_results]
+        except Exception as exc:  # pylint: disable=broad-except
+            app.logger.warning("Search error (%s): %s", url, exc)
+            continue  # Try next endpoint
+
+    # All endpoints failed
+    return []
+
+
+# --------------------------- AI generation ----------------------------------
 
 def generate_ai_response(question: str) -> str:
     """Combine web search context with OpenAI chat completion."""
     # 1. Run web search
     results = search_web(question, max_results=8)
-    context_lines = [f"- {res.get('title')}: {res.get('snippet')} (source: {res.get('url')})" for res in results]
+    context_lines = [
+        f"- {res.get('title')}: {res.get('snippet')} (source: {res.get('url')})"
+        for res in results
+    ]
     context = "\n".join(context_lines) if context_lines else "(No relevant results found.)"
 
     # 2. Build system & user messages
@@ -103,7 +210,12 @@ def generate_ai_response(question: str) -> str:
     )
 
     # 3. Call OpenAI ChatCompletion
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+    openai.api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai.api_key:
+        return (
+            "OPENAI_API_KEY is not set on the server – AI mode is temporarily unavailable."
+        )
+
     response = openai.chat.completions.create(
         model="gpt-4o-mini",  # Small, fast model; change if needed
         messages=[
@@ -131,12 +243,7 @@ def chat():
     mode: str = payload.get("mode", "wisdom").lower()
 
     if mode == "ai":
-        try:
-            boog_response = generate_ai_response(user_input)
-        except KeyError:
-            boog_response = (
-                "OPENAI_API_KEY is not set on the server – AI mode is temporarily unavailable."
-            )
+        boog_response = generate_ai_response(user_input)
     else:
         # Fallback to canned quotes if mode not recognised
         if mode not in BOOG_QUOTES:
@@ -153,4 +260,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # Setting threaded=True plays nicer with OpenAI and HTTP requests concurrency
     app.run(host="0.0.0.0", port=port, threaded=True)
-
