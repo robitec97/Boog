@@ -1,24 +1,31 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>BoogGPT 🐱</title>
-  <link rel='preconnect' href='https://fonts.googleapis.com'>
-  <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
-  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap' rel='stylesheet'>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>BoogGPT 🐱 – Responsive</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
   <style>
     :root {
       --bg: #f9fafb;
       --bg-alt: #ffffff;
-      --accent: #6366f1; /* indigo-500 */
-      --user-bg: #e0e7ff; /* indigo-100 */
-      --boog-bg: #fbe7ff; /* fuchsia-100 */
-      --text-main: #111827; /* gray-900 */
-      --border-color: #e5e7eb; /* gray-200 */
+      --accent: #6366f1; /* indigo‑500 */
+      --user-bg: #e0e7ff; /* indigo‑100 */
+      --boog-bg: #fbe7ff; /* fuchsia‑100 */
+      --text-main: #111827; /* gray‑900 */
+      --border-color: #e5e7eb; /* gray‑200 */
+      --code-bg: #f3f4f6; /* light code background */
     }
 
-    /* Dark‑mode values picked for adequate contrast */
+    /* Dark‑mode palette */
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #111827;
@@ -27,7 +34,8 @@
         --user-bg: #3730a3;
         --boog-bg: #312e81;
         --text-main: #f3f4f6;
-        --border-color: #374151; /* gray-700 */
+        --border-color: #374151; /* gray‑700 */
+        --code-bg: #1f2937; /* dark code background */
       }
     }
 
@@ -45,10 +53,13 @@
 
     /* Main column */
     .container {
+      width: 100%;
       max-width: 600px;
       margin: 0 auto;
-      padding: 2rem 1rem 8rem; /* bottom padding leaves room for fixed input bar */
+      padding: 2rem 1rem 8rem; /* bottom padding for fixed input */
       flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     h1 {
@@ -76,21 +87,22 @@
 
     /* Chat window */
     #chat {
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
       overflow-y: auto;
-      max-height: 70vh;
-      padding-right: 0.5rem; /* keeps last message fully visible next to scrollbar */
+      padding-right: 0.5rem; /* keeps last message visible near scrollbar */
     }
 
     .msg {
       max-width: 85%;
       padding: 0.75rem 1rem;
       border-radius: 0.75rem;
-      line-height: 1.4;
+      line-height: 1.5;
       word-wrap: break-word;
       white-space: pre-wrap;
+      overflow-wrap: anywhere; /* keep very long tokens from overflowing */
     }
 
     .user {
@@ -106,101 +118,123 @@
       border-bottom-left-radius: 0.25rem;
     }
 
-    /* Blinking cursor animation for "thinking" indicator */
+    /* Markdown‑specific styling inside bot messages */
+    .boog h1, .boog h2, .boog h3, .boog h4, .boog h5 {
+      margin: 0.6rem 0 0.4rem;
+      font-weight: 700;
+    }
+    .boog pre {
+      background: var(--code-bg);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      margin: 0.6rem 0;
+    }
+    .boog code {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 0.95rem;
+    }
+
+    /* Blinking cursor animation */
     .blinking-cursor {
-        animation: blink 1s step-end infinite;
+      animation: blink 1s step-end infinite;
     }
-
     @keyframes blink {
-        from, to { color: transparent; }
-        50% { color: var(--text-main); }
+      from, to { color: transparent; }
+      50% { color: var(--text-main); }
     }
 
-    /* --- NEW --- Centered input bar styles */
+    /* Input bar */
     .input-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 1rem;
-        display: flex;
-        justify-content: center;
-        background: linear-gradient(to top, var(--bg) 50%, transparent);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+      background: linear-gradient(to top, var(--bg) 50%, transparent);
     }
 
     .input-bar {
-        display: flex;
-        align-items: center;
-        width: 100%;
-        max-width: 600px;
-        background: var(--bg-alt);
-        border: 1px solid var(--border-color);
-        border-radius: 1.5rem; /* Pill shape */
-        padding: 0.5rem 0.5rem 0.5rem 1.25rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      width: 100%;
+      max-width: 600px;
+      background: var(--bg-alt);
+      border: 1px solid var(--border-color);
+      border-radius: 1.5rem;
+      padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     .input-bar input[type='text'] {
-        flex: 1;
-        border: none;
-        outline: none;
-        background: transparent;
-        font-size: 1rem;
-        font-family: 'Inter', sans-serif;
-        color: var(--text-main);
-        padding: 0;
-        margin-right: 0.5rem;
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      padding: 0;
+      margin-right: 0.5rem;
     }
 
     .input-bar button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
-        background: var(--accent);
-        color: #fff;
-        border: none;
-        border-radius: 50%; /* Make it circular */
-        cursor: pointer;
-        transition: background 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s ease;
     }
-    
-    .input-bar button:hover {
-        background: #4f46e5; /* indigo-600 */
-    }
-    
-    .input-bar button:disabled {
-        background: #a5b4fc; /* indigo-300 */
-        cursor: not-allowed;
+    .input-bar button:hover { background: #4f46e5; }
+    .input-bar button:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+    /* Responsive tweaks */
+    @media (max-width: 640px) { /* ~Tailwind sm */
+      .msg { max-width: 100%; }
+      .container { padding: 1rem 0.5rem 7rem; }
     }
   </style>
 </head>
 <body>
-  <div class='container'>
+  <div class="container">
     <h1>😼 BoogGPT</h1>
-    <label for='mode'>
+
+    <label for="mode">
       ✨ Mode:
-      <select id='mode'>
-        <option value='wisdom'>✨ Wisdom</option>
-        <option value='roast'>✨ Roast</option>
-        <option value='ai'>✨ AI</option>
+      <select id="mode">
+        <option value="wisdom">✨ Wisdom</option>
+        <option value="roast">✨ Roast</option>
+        <option value="ai">✨ AI</option>
       </select>
     </label>
-    <div id='chat'></div>
+
+    <div id="chat"></div>
   </div>
 
-  <div class='input-container'>
-    <div class='input-bar'>
-      <input type='text' id='message' placeholder='Say something…' autocomplete='off'>
-      <button id='sendBtn' title="Send Message">
+  <!-- Input bar -->
+  <div class="input-container">
+    <div class="input-bar">
+      <input type="text" id="message" placeholder="Say something…" autocomplete="off" />
+      <button id="sendBtn" title="Send Message">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+          <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
         </svg>
       </button>
     </div>
   </div>
+
+  <!-- Dependencies for Markdown rendering and sanitisation -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.4/dist/purify.min.js"></script>
 
   <script>
     const chat = document.getElementById('chat');
@@ -215,71 +249,77 @@
       }
     });
 
-    // --- NEW --- Function to type out the bot's response
-    function typeResponse(element, text) {
-        let index = 0;
-        const interval = 30; // Delay in ms between characters
-        
-        sendBtn.disabled = true; // Disable send button while typing
+    /**
+     * Animated typing effect; after all characters are shown we convert the
+     * markdown string to HTML and replace the message content so headings,
+     * lists, code blocks… are rendered nicely.
+     */
+    function typeResponse(element, markdownText) {
+      let index = 0;
+      const speed = 30; // ms per char
+      element.textContent = '';
+      sendBtn.disabled = true;
 
-        function typeChar() {
-            if (index < text.length) {
-                element.textContent += text.charAt(index);
-                index++;
-                chat.scrollTop = chat.scrollHeight; // Scroll with each new char
-                setTimeout(typeChar, interval);
-            } else {
-                sendBtn.disabled = false; // Re-enable button when done
-            }
+      function typeChar() {
+        if (index < markdownText.length) {
+          element.textContent += markdownText.charAt(index++);
+          chat.scrollTop = chat.scrollHeight;
+          setTimeout(typeChar, speed);
+        } else {
+          // Replace raw markdown with rendered, sanitised HTML
+          element.innerHTML = DOMPurify.sanitize(marked.parse(markdownText));
+          chat.scrollTop = chat.scrollHeight;
+          sendBtn.disabled = false;
         }
-        typeChar(); // Start the animation
+      }
+      typeChar();
     }
 
     // Appends the user's message instantly
     function appendUserMessage(text) {
-        const div = document.createElement('div');
-        div.className = 'msg user';
-        div.textContent = text;
-        chat.appendChild(div);
-        chat.scrollTop = chat.scrollHeight;
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
     }
 
     function sendMessage() {
-        const message = messageInput.value.trim();
-        if (!message) return;
+      const message = messageInput.value.trim();
+      if (!message) return;
 
-        const mode = document.getElementById('mode').value;
-        appendUserMessage(message); // Show user message immediately
-        messageInput.value = '';
+      const mode = document.getElementById('mode').value;
+      appendUserMessage(message);
+      messageInput.value = '';
 
-        // --- NEW --- Create a placeholder for the bot's response with a cursor
-        const botMsgDiv = document.createElement('div');
-        botMsgDiv.className = 'msg boog';
-        const cursor = document.createElement('span');
-        cursor.className = 'blinking-cursor';
-        cursor.textContent = '▋';
-        botMsgDiv.appendChild(cursor);
-        chat.appendChild(botMsgDiv);
-        chat.scrollTop = chat.scrollHeight;
+      // Placeholder bot message with blinking cursor
+      const botMsgDiv = document.createElement('div');
+      botMsgDiv.className = 'msg boog';
+      const cursor = document.createElement('span');
+      cursor.className = 'blinking-cursor';
+      cursor.textContent = '▋';
+      botMsgDiv.appendChild(cursor);
+      chat.appendChild(botMsgDiv);
+      chat.scrollTop = chat.scrollHeight;
 
-        // --- UPDATED --- Fetch logic to use the typing animation
-        fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, mode })
-        })
-        .then(res => {
-            if (!res.ok) throw new Error('Network response was not ok');
-            return res.json();
-        })
-        .then(data => {
-            botMsgDiv.innerHTML = ''; // Clear the cursor
-            typeResponse(botMsgDiv, data.response); // Type out the response
-        })
-        .catch(() => {
-            botMsgDiv.innerHTML = ''; // Clear the cursor on error
-            typeResponse(botMsgDiv, '⚠️ Something went wrong. Please try again.');
-        });
+      // Call the backend
+      fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, mode })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        botMsgDiv.removeChild(cursor);
+        typeResponse(botMsgDiv, data.response);
+      })
+      .catch(() => {
+        botMsgDiv.removeChild(cursor);
+        typeResponse(botMsgDiv, '⚠️ Something went wrong. Please try again.');
+      });
     }
   </script>
 </body>
