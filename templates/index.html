@@ -20,7 +20,7 @@
       --accent: #6366f1;
       --accent-hover: #5855eb;
       --user-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --boog-bg: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --boog-bg: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
       --text-main: #1f2937;
       --text-secondary: #6b7280;
       --border-color: rgba(255, 255, 255, 0.2);
@@ -36,7 +36,7 @@
         --bg-overlay: rgba(17, 24, 39, 0.95);
         --bg-alt: rgba(31, 41, 55, 0.8);
         --user-bg: linear-gradient(135deg, #3730a3 0%, #1e1b4b 100%);
-        --boog-bg: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+        --boog-bg: linear-gradient(135deg, #374151 0%, #1f2937 100%);
         --text-main: #f3f4f6;
         --text-secondary: #9ca3af;
         --border-color: rgba(255, 255, 255, 0.1);
@@ -92,10 +92,7 @@
     h1 {
       font-size: 3rem;
       font-weight: 700;
-      background: var(--user-bg);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: var(--text-main);
       margin-bottom: 0.5rem;
       text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
@@ -199,11 +196,12 @@
     .boog {
       align-self: flex-start;
       background: var(--boog-bg);
-      color: white;
+      color: var(--text-main);
       font-weight: 500;
       border-bottom-left-radius: 8px;
       transform: translateY(0);
       transition: transform 0.2s ease;
+      border: 1px solid var(--border-color);
     }
 
     .boog:hover {
@@ -214,7 +212,7 @@
     .boog h1, .boog h2, .boog h3, .boog h4, .boog h5 {
       margin: 1rem 0 0.5rem;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.95);
+      color: var(--text-main);
     }
 
     .boog p {
@@ -242,10 +240,11 @@
     }
 
     .boog blockquote {
-      border-left: 4px solid rgba(255, 255, 255, 0.3);
+      border-left: 4px solid var(--accent);
       margin: 1rem 0;
       padding-left: 1rem;
       font-style: italic;
+      opacity: 0.8;
     }
 
     .typing-indicator {
@@ -264,7 +263,7 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.7);
+      background: var(--text-secondary);
       animation: typingBounce 1.4s infinite;
     }
 
@@ -576,7 +575,10 @@
       div.setAttribute('role', 'assistant');
       chat.appendChild(div);
       
-      return typeResponse(div, text);
+      // Add cute cat emoji prefix
+      const messageWithCat = '🐱 ' + text;
+      
+      return typeResponse(div, messageWithCat);
     }
 
     function scrollToBottom() {
@@ -630,12 +632,12 @@
         
         // Remove typing indicator and show response
         botMsgDiv.removeChild(typingIndicator);
-        await typeResponse(botMsgDiv, data.response);
+        await typeResponse(botMsgDiv, '🐱 ' + data.response);
         
       } catch (error) {
         console.error('Error:', error);
         botMsgDiv.removeChild(typingIndicator);
-        await typeResponse(botMsgDiv, '⚠️ Oops! Something went wrong. Please try again in a moment.');
+        await typeResponse(botMsgDiv, '🐱 ⚠️ Oops! Something went wrong. Please try again in a moment.');
       } finally {
         setLoading(false);
       }
