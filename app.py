@@ -78,15 +78,9 @@ def index():
 def chat():
     payload = request.get_json(silent=True) or {}
     user_input: str = payload.get("message", "").strip()
-    mode: str = payload.get("mode", "wisdom").lower()
-
-    if mode == "ai":
-        boog_response = generate_ai_response(user_input)
-    else:
-        # Fallback to canned quotes if mode not recognised
-        if mode not in BOOG_QUOTES:
-            mode = "roast"
-        boog_response = random.choice(BOOG_QUOTES[mode])
+    mode: str = payload.get("mode", "ai").lower() #mode parameter - unused right now - always 'ai'
+    
+    boog_response = generate_ai_response(user_input)
       
     return jsonify(response=boog_response)
 
