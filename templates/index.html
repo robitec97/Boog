@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <title>Boog 🐱</title>
 
   <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
   <style>
     :root {
@@ -28,8 +28,9 @@
       --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.15);
       --code-bg: rgba(0, 0, 0, 0.05);
       --glass: backdrop-filter: blur(20px) saturate(180%);
+      --ok: #10b981;
+      --danger: #ef4444;
     }
-
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
@@ -44,11 +45,7 @@
       }
     }
 
-    * { 
-      box-sizing: border-box; 
-      margin: 0; 
-      padding: 0; 
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -59,344 +56,129 @@
       flex-direction: column;
       overflow-x: hidden;
     }
-
     body::before {
       content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      position: fixed; inset: 0;
       background: var(--bg-overlay);
       var(--glass);
       z-index: -1;
     }
 
     .container {
-      width: 100%;
-      max-width: 700px;
-      margin: 0 auto;
+      width: 100%; max-width: 700px; margin: 0 auto;
       padding: 2rem 1.5rem 9rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
+      flex: 1; display: flex; flex-direction: column; position: relative;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 2rem;
-      animation: fadeInUp 0.8s ease-out;
-    }
+    .header { text-align: center; margin-bottom: 2rem; animation: fadeInUp 0.8s ease-out; }
+    h1 { font-size: 3rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem; text-shadow: 0 2px 10px rgba(0,0,0,.1); }
+    .subtitle { color: var(--text-secondary); font-size: 1.1rem; font-weight: 300; margin-bottom: 1.5rem; }
 
-    h1 {
-      font-size: 3rem;
-      font-weight: 700;
-      color: var(--text-main);
-      margin-bottom: 0.5rem;
-      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .subtitle {
-      color: var(--text-secondary);
-      font-size: 1.1rem;
-      font-weight: 300;
-      margin-bottom: 1.5rem;
-    }
-
-    #chat {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      overflow-y: auto;
-      padding-right: 0.5rem;
-      scroll-behavior: smooth;
-    }
-
-    #chat::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    #chat::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    #chat::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 3px;
-    }
+    #chat { flex: 1; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: .5rem; scroll-behavior: smooth; }
+    #chat::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
     .msg {
-      max-width: 80%;
-      padding: 1rem 1.5rem;
-      border-radius: 20px;
-      line-height: 1.6;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      position: relative;
-      animation: messageSlideIn 0.4s ease-out;
-      box-shadow: var(--shadow);
-      var(--glass);
+      max-width: 80%; padding: 1rem 1.5rem; border-radius: 20px; line-height: 1.6;
+      word-wrap: break-word; white-space: pre-wrap; overflow-wrap: anywhere; position: relative;
+      animation: messageSlideIn .4s ease-out; box-shadow: var(--shadow); var(--glass);
     }
+    .user { align-self: flex-end; background: var(--user-bg); color: #fff; border-bottom-right-radius: 8px; transition: transform .2s ease; }
+    .user:hover { transform: translateY(-2px); }
+    .boog { align-self: flex-start; background: var(--boog-bg); color: var(--text-main); font-weight: 500; border-bottom-left-radius: 8px; transition: transform .2s ease; border: 1px solid var(--border-color); }
+    .boog:hover { transform: translateY(-2px); }
 
-    .user {
-      align-self: flex-end;
-      background: var(--user-bg);
-      color: white;
-      border-bottom-right-radius: 8px;
-      transform: translateY(0);
-      transition: transform 0.2s ease;
-    }
+    .boog h1,.boog h2,.boog h3,.boog h4,.boog h5{margin:1rem 0 .5rem;font-weight:600;color:var(--text-main)}
+    .boog p{margin:.5rem 0}
+    .boog ul,.boog ol{margin:.5rem 0;padding-left:1.5rem}
+    .boog pre{background:var(--code-bg);border-radius:12px;padding:1rem;overflow-x:auto;margin:1rem 0;border:1px solid rgba(255,255,255,.1)}
+    .boog code{font-family:'JetBrains Mono','Fira Code',monospace;font-size:.9rem;font-weight:500}
+    .boog blockquote{border-left:4px solid var(--accent);margin:1rem 0;padding-left:1rem;font-style:italic;opacity:.8}
 
-    .user:hover {
-      transform: translateY(-2px);
-    }
-
-    .boog {
-      align-self: flex-start;
-      background: var(--boog-bg);
-      color: var(--text-main);
-      font-weight: 500;
-      border-bottom-left-radius: 8px;
-      transform: translateY(0);
-      transition: transform 0.2s ease;
-      border: 1px solid var(--border-color);
-    }
-
-    .boog:hover {
-      transform: translateY(-2px);
-    }
-
-    /* Enhanced markdown styling */
-    .boog h1, .boog h2, .boog h3, .boog h4, .boog h5 {
-      margin: 1rem 0 0.5rem;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .boog p {
-      margin: 0.5rem 0;
-    }
-
-    .boog ul, .boog ol {
-      margin: 0.5rem 0;
-      padding-left: 1.5rem;
-    }
-
-    .boog pre {
-      background: var(--code-bg);
-      border-radius: 12px;
-      padding: 1rem;
-      overflow-x: auto;
-      margin: 1rem 0;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .boog code {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .boog blockquote {
-      border-left: 4px solid var(--accent);
-      margin: 1rem 0;
-      padding-left: 1rem;
-      font-style: italic;
-      opacity: 0.8;
-    }
-
-    .typing-indicator {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0;
-    }
-
-    .typing-dots {
-      display: flex;
-      gap: 4px;
-    }
-
-    .typing-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--text-secondary);
-      animation: typingBounce 1.4s infinite;
-    }
-
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes typingBounce {
-      0%, 60%, 100% { transform: translateY(0); }
-      30% { transform: translateY(-10px); }
-    }
+    .typing-indicator { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; }
+    .typing-dots { display: flex; gap: 4px; }
+    .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary); animation: typingBounce 1.4s infinite; }
+    .typing-dot:nth-child(2){animation-delay:.2s} .typing-dot:nth-child(3){animation-delay:.4s}
+    @keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-10px)}}
 
     .input-container {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 1.5rem;
-      display: flex;
-      justify-content: center;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 1.5rem; display: flex; justify-content: center;
       background: linear-gradient(to top, var(--bg-overlay) 70%, transparent);
       var(--glass);
     }
-
     .input-bar {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      max-width: 700px;
-      background: var(--bg-alt);
-      var(--glass);
-      border: 2px solid var(--border-color);
-      border-radius: 25px;
-      padding: 0.75rem 1rem;
-      box-shadow: var(--shadow-hover);
-      transition: all 0.3s ease;
+      display: flex; align-items: center; gap: .5rem;
+      width: 100%; max-width: 700px;
+      background: var(--bg-alt); var(--glass);
+      border: 2px solid var(--border-color); border-radius: 25px;
+      padding: .5rem .5rem .5rem .75rem;
+      box-shadow: var(--shadow-hover); transition: all .3s ease;
     }
+    .input-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.1), var(--shadow-hover); transform: translateY(-2px); }
 
-    .input-bar:focus-within {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), var(--shadow-hover);
-      transform: translateY(-2px);
+    .input-bar input[type='text']{
+      flex:1; border:none; outline:none; background:transparent;
+      font-size:1rem; font-family:'Inter',sans-serif; color:var(--text-main);
+      padding:.5rem 1rem; font-weight:400;
     }
+    .input-bar input::placeholder{color:var(--text-secondary);font-weight:300}
 
-    .input-bar input[type='text'] {
-      flex: 1;
-      border: none;
-      outline: none;
+    /* New: mode button (magnifying glass) */
+    .mode-button {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-color);
       background: transparent;
-      font-size: 1rem;
-      font-family: 'Inter', sans-serif;
-      color: var(--text-main);
-      padding: 0.5rem 1rem;
-      font-weight: 400;
-    }
-
-    .input-bar input[type='text']::placeholder {
       color: var(--text-secondary);
-      font-weight: 300;
+      cursor: pointer;
+      transition: all .2s ease;
+      position: relative;
     }
+    .mode-button:hover { color: var(--text-main); border-color: var(--accent); box-shadow: 0 4px 12px rgba(99,102,241,.15); transform: translateY(-1px); }
+    .mode-button:active { transform: translateY(0); }
+    .mode-button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 6px 16px rgba(99,102,241,.35);
+    }
+    .mode-badge {
+      position: absolute; bottom: -6px; right: -6px;
+      padding: 2px 6px; border-radius: 10px; font-size: .65rem; font-weight: 600;
+      background: var(--accent); color: #fff; display: none;
+    }
+    .mode-button.active .mode-badge { display: inline-block; }
 
     .send-button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      display:flex;align-items:center;justify-content:center;
+      width:40px;height:40px;padding:0;background:var(--accent);color:#fff;border:none;border-radius:50%;
+      cursor:pointer;transition:all .3s ease;box-shadow:0 4px 12px rgba(99,102,241,.3);
+    }
+    .send-button:hover:not(:disabled){background:var(--accent-hover);transform:scale(1.05);box-shadow:0 6px 16px rgba(99,102,241,.4)}
+    .send-button:active{transform:scale(.95)}
+    .send-button:disabled{background:var(--text-secondary);cursor:not-allowed;transform:none;box-shadow:none}
+    .send-button.loading{animation:spin 1s linear infinite}
+    @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes messageSlideIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+    @media (max-width:768px){
+      .container{padding:1.5rem 1rem 8rem;max-width:100%}
+      h1{font-size:2.5rem}
+      .msg{max-width:90%;padding:.875rem 1.25rem}
+    }
+    @media (max-width:480px){
+      .container{padding:1rem .75rem 7rem}
+      h1{font-size:2rem}
+      .msg{max-width:95%;padding:.75rem 1rem}
+      .input-container{padding:1rem}
     }
 
-    .send-button:hover:not(:disabled) {
-      background: var(--accent-hover);
-      transform: scale(1.05);
-      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
-    }
-
-    .send-button:active {
-      transform: scale(0.95);
-    }
-
-    .send-button:disabled {
-      background: var(--text-secondary);
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    /* Animations */
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes messageSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* Responsive design */
-    @media (max-width: 768px) {
-      .container {
-        padding: 1.5rem 1rem 8rem;
-        max-width: 100%;
-      }
-
-      h1 {
-        font-size: 2.5rem;
-      }
-
-      .msg {
-        max-width: 90%;
-        padding: 0.875rem 1.25rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 1rem 0.75rem 7rem;
-      }
-
-      h1 {
-        font-size: 2rem;
-      }
-
-      .msg {
-        max-width: 95%;
-        padding: 0.75rem 1rem;
-      }
-
-      .input-container {
-        padding: 1rem;
-      }
-    }
-
-    /* Enhanced focus states for accessibility */
-    *:focus {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    input:focus,
-    button:focus {
-      outline: none;
-    }
-
-    /* Loading animation for send button */
-    .send-button.loading {
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
+    *:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    input:focus, button:focus { outline: none; }
   </style>
 </head>
 <body>
@@ -405,16 +187,12 @@
       <h1>Boog 😼</h1>
       <p class="subtitle">
         A cat themed AI agent with personality
-        <br>
+        <br />
         developed by
-        <a href="https://github.com/robitec97"
-           target="_blank"
-           rel="noopener noreferrer"
-           aria-label="Visit Roberto Pillitteri’s GitHub profile">
+        <a href="https://github.com/robitec97" target="_blank" rel="noopener noreferrer" aria-label="Visit Roberto Pillitteri’s GitHub profile">
           Roberto Pillitteri
         </a>
       </p>
-
       <!-- Mode selector removed -->
     </div>
 
@@ -423,21 +201,38 @@
 
   <div class="input-container">
     <div class="input-bar">
-      <input 
-        type="text" 
-        id="message" 
-        placeholder="Type your message..." 
+      <input
+        type="text"
+        id="message"
+        placeholder="Type your message..."
         autocomplete="off"
         aria-label="Message input"
         maxlength="1000"
       />
-      <button 
-        id="sendBtn" 
+
+      <!-- NEW: Magnifying glass toggle -->
+      <button
+        id="webToggle"
+        class="mode-button"
+        type="button"
+        title="Toggle Web Search mode (Alt+W)"
+        aria-label="Toggle Web Search mode"
+        aria-pressed="false"
+      >
+        <!-- heroicons outline: magnifying glass -->
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M10 3.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0-1.5a8 8 0 0 0-6.32 12.9l-2.59 2.6a1 1 0 1 0 1.42 1.4l2.58-2.58A8 8 0 1 0 10 2Z"/>
+        </svg>
+        <span class="mode-badge" aria-hidden="true">WS</span>
+      </button>
+
+      <button
+        id="sendBtn"
         class="send-button"
         title="Send Message"
         aria-label="Send message"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
         </svg>
       </button>
@@ -451,12 +246,39 @@
     const chat = document.getElementById('chat');
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
+    const webToggle = document.getElementById('webToggle');
 
     let isTyping = false;
+    let currentMode = 'ai'; // default
+
+    // Accessibility: keyboard shortcut Alt+W to toggle
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'w' || e.key === 'W')) {
+        e.preventDefault();
+        toggleWebMode();
+      }
+    });
 
     // Event listeners
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', handleKeyPress);
+    webToggle.addEventListener('click', toggleWebMode);
+
+    function toggleWebMode() {
+      const isActive = webToggle.classList.toggle('active');
+      webToggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      currentMode = isActive ? 'web-search' : 'ai';
+
+      // UX hint in placeholder
+      messageInput.placeholder = isActive
+        ? 'Search the web… (Alt+W to switch back)'
+        : 'Type your message…';
+
+      // Tooltip update
+      webToggle.title = isActive
+        ? 'Web Search: ON (Alt+W to turn off)'
+        : 'Toggle Web Search mode (Alt+W)';
+    }
 
     function handleKeyPress(e) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -484,7 +306,6 @@
         let index = 0;
         const speed = 25;
         element.textContent = '';
-        
         function typeChar() {
           if (index < markdownText.length) {
             element.textContent += markdownText.charAt(index++);
@@ -497,7 +318,6 @@
             resolve();
           }
         }
-        
         typeChar();
       });
     }
@@ -520,15 +340,14 @@
       return typeResponse(div, messageWithCat);
     }
 
-    function scrollToBottom() {
-      chat.scrollTop = chat.scrollHeight;
-    }
+    function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
 
     function setLoading(loading) {
       isTyping = loading;
       sendBtn.disabled = loading;
       sendBtn.classList.toggle('loading', loading);
       messageInput.disabled = loading;
+      webToggle.disabled = loading; // disable mode toggle while sending
       if (loading) {
         sendBtn.setAttribute('aria-label', 'Sending message...');
       } else {
@@ -540,8 +359,6 @@
       const message = messageInput.value.trim();
       if (!message || isTyping) return;
 
-      const mode = "ai"; // always AI mode
-
       appendUserMessage(message);
       messageInput.value = '';
       setLoading(true);
@@ -550,7 +367,7 @@
       const botMsgDiv = document.createElement('div');
       botMsgDiv.className = 'msg boog';
       botMsgDiv.setAttribute('role', 'assistant');
-      
+
       const typingIndicator = createTypingIndicator();
       botMsgDiv.appendChild(typingIndicator);
       chat.appendChild(botMsgDiv);
@@ -560,17 +377,16 @@
         const response = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, mode })
+          body: JSON.stringify({ message, mode: currentMode })
         });
 
         if (!response.ok) throw new Error('Network response was not ok');
-        
+
         const data = await response.json();
-        
+
         // Remove typing indicator and show response
         botMsgDiv.removeChild(typingIndicator);
-        await typeResponse(botMsgDiv, '🐱 ' + data.response);
-        
+        await typeResponse(botMsgDiv, '🐱 ' + (data.response ?? 'No response.'));
       } catch (error) {
         console.error('Error:', error);
         botMsgDiv.removeChild(typingIndicator);
@@ -582,13 +398,11 @@
 
     // Welcome message
     window.addEventListener('load', () => {
-      setTimeout(() => {
-        appendBotMessage('Hey there! I\'m Boog!');
-      }, 500);
+      setTimeout(() => { appendBotMessage('Hey there! I\'m Boog!'); }, 500);
     });
 
-    // Handle textarea auto-resize
-    messageInput.addEventListener('input', function() {
+    // Auto-resize (kept)
+    messageInput.addEventListener('input', function () {
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
