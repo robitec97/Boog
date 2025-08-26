@@ -54,7 +54,7 @@ def generate_ai_response(prompt: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "You are BoogGPT – a friendly, helpful AI assistant. "
+                        "You are Boog – a friendly, smart and specialized AI agent. "
                         "Keep answers concise and clear."
                     ),
                 },
