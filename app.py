@@ -1,15 +1,3 @@
-"""BoogGPT – simplified backend powered by Groq GPT‑OSS 120B
-
-Changelog (2025‑08‑07)
-----------------------
-* **Removed web search layer** – the assistant now behaves like a straight‑up
-  conversational chatbot. No external searches are performed.
-* **Switched to Groq API** – `generate_ai_response()` now calls Groq’s
-  `openai/gpt-oss-120b` model via the official `groq` Python client. Supply your
-  API key through the `GROQ_API_KEY` Heroku config var.
-* **Renamed AI personality** – the cat persona is retired; meet *BoogGPT*,
-  a friendly, helpful assistant.
-"""
 from __future__ import annotations
 
 import json
@@ -48,47 +36,6 @@ from flask import Flask, render_template, request, jsonify
 app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
 
-# ---------- Constants -------------------------------------------------------
-BOOG_QUOTES: Dict[str, List[str]] = {
-    "wisdom": [
-        "Sleep is the answer to most problems.",
-        "If it fits, sit. If it doesn’t fit, sit anyway.",
-        "The humans rush, the cat observes.",
-        "Sometimes doing nothing is doing everything.",
-        "Patience is a purr-tue.",
-    ],
-    "roast": [
-        "That's your plan? I've seen mice with better strategy.",
-        "You're typing? Cute. Still won't fix your code.",
-        "Bold of you to assume anyone cares.",
-        "Wow. Even the litter box smells better than that idea.",
-        "You again? I was hoping for someone interesting.",
-    ],
-}
-
-# File system on Heroku is ephemeral; store in /tmp
-LOG_FILE = os.path.join("/tmp", "boog_log.json")
-
-# ---------- Helper functions ------------------------------------------------
-def log_chat(user_msg: str, boog_msg: str) -> None:
-    """Append the chat pair to a local JSON log (best‑effort)."""
-    entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "user": user_msg,
-        "boog": boog_msg,
-    }
-    try:
-        with open(LOG_FILE, "r+", encoding="utf-8") as f:
-            data = json.load(f)
-            data.append(entry)
-            f.seek(0)
-            json.dump(data, f, indent=2)
-    except FileNotFoundError:
-        with open(LOG_FILE, "w", encoding="utf-8") as f:
-            json.dump([entry], f, indent=2)
-
-
-# --------------------------- AI generation ----------------------------------
 def generate_ai_response(prompt: str) -> str:
     """Generate a chat completion using Groq GPT‑OSS 120B."""
     api_key = os.getenv("GROQ_API_KEY", "")
@@ -140,8 +87,7 @@ def chat():
         if mode not in BOOG_QUOTES:
             mode = "roast"
         boog_response = random.choice(BOOG_QUOTES[mode])
-
-    log_chat(user_input, boog_response)
+      
     return jsonify(response=boog_response)
 
 # ---------- Entrypoint ------------------------------------------------------
