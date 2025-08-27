@@ -7,12 +7,13 @@
 
 Boog is a lightweight **AI agent** built with in **Python** and **Flask**, integrating **GPT-OSS 120B** for natural conversations and **Web Search** for up-to-date, reference-backed answers.
 It features a clean and fast frontend UI and can be deployed easily to **Heroku** or similar platforms.
+## 🎮 Demo
+
+You can try out Boog live here: 👉 [Boog Demo on Heroku](https://boog-gpt-a52a0df7bf72.herokuapp.com/)
 
 <p align="center">
   <img src="static/boog_screen.png" alt="Boog Agent Chat UI" width="700"/>
 </p>
-
----
 
 ## 🚀 Features
 
@@ -21,12 +22,6 @@ It features a clean and fast frontend UI and can be deployed easily to **Heroku*
 * **Frontend** – responsive chat interface with async handling and cat-themed branding.
 * **Backend** – Flask backend with clean JSON API.
 * **Deployment ready** – configured with `Procfile` for Heroku.
-
----
-
-## 🎮 Demo
-
-You can try out Boog live here: 👉 [Boog Demo on Heroku](https://boog-gpt-a52a0df7bf72.herokuapp.com/)
 
 ---
 
