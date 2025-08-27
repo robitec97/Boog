@@ -8,6 +8,10 @@
 Boog is a lightweight **AI agent** built with in **Python** and **Flask**, integrating **GPT-OSS 120B** for natural conversations and **Web Search** for up-to-date, reference-backed answers.
 It features a clean and fast frontend UI and can be deployed easily to **Heroku** or similar platforms.
 
+<p align="center">
+  <img src="static/boog_screen.png" alt="Boog Agent Chat UI" width="700"/>
+</p>
+
 ---
 
 ## 🚀 Features
