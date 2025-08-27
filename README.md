@@ -28,7 +28,7 @@ You can try out Boog live here: 👉 [Boog Demo on Heroku](https://boog-gpt-a52a
 ## 📂 Project Structure
 
 ```
-BoogGPT-main/
+Boog-main/
 ├── Procfile              # For Heroku deployment
 ├── README.md             # Project documentation (this file)
 ├── app.py                # Flask backend
@@ -46,8 +46,8 @@ BoogGPT-main/
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/your-username/BoogGPT.git
-   cd BoogGPT
+   git clone https://github.com/your-username/Boog.git
+   cd Boog
    ```
 
 2. **Create a virtual environment & install dependencies**
@@ -88,7 +88,7 @@ BoogGPT-main/
 2. Create an app:
 
    ```bash
-   heroku create booggpt
+   heroku create boog-agent
    ```
 
 3. Set environment variables:
