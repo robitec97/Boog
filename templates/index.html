@@ -16,6 +16,23 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='boog.css') }}">
   
 </head>
+
+<script>
+  // MathJax config: LaTeX inline + block, and skip code/pre/etc.
+  window.MathJax = {
+    tex: {
+      inlineMath: [["$", "$"], ["\\(", "\\)"]],
+      displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+    },
+    options: {
+      // Don't process inside code, pre, script, etc.
+      skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+    },
+    svg: { fontCache: "global" }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
 <body>
   <div class="container">
     <div class="header">
@@ -130,25 +147,41 @@
     }
 
     function typeResponse(element, markdownText) {
-      return new Promise((resolve) => {
-        let index = 0;
-        const speed = 25;
-        element.textContent = '';
-        function typeChar() {
-          if (index < markdownText.length) {
-            element.textContent += markdownText.charAt(index++);
-            scrollToBottom();
-            setTimeout(typeChar, speed);
-          } else {
-            const html = marked.parse(markdownText);
-            element.innerHTML = DOMPurify.sanitize(html);
-            scrollToBottom();
-            resolve();
-          }
+  return new Promise((resolve) => {
+    // Adaptive chunking based on message size
+    const len = markdownText.length;
+    const chunkSize = len > 1500 ? 40 : len > 700 ? 24 : len > 250 ? 12 : 6;
+
+    let index = 0;
+    element.textContent = '';
+
+    // Use requestAnimationFrame for smoothness
+    function tick() {
+      // Append a chunk of raw text quickly
+      const nextIndex = Math.min(index + chunkSize, len);
+      element.textContent += markdownText.slice(index, nextIndex);
+      index = nextIndex;
+      scrollToBottom();
+
+      if (index < len) {
+        requestAnimationFrame(tick);
+      } else {
+        // Once done, render Markdown in one go (fastest), sanitize, then MathJax
+        const html = marked.parse(markdownText);
+        element.innerHTML = DOMPurify.sanitize(html);
+        scrollToBottom();
+
+        // Typeset only this message node for speed
+        if (window.MathJax?.typesetPromise) {
+          MathJax.typesetPromise([element]).catch(err => console.error(err.message));
         }
-        typeChar();
-      });
+        resolve();
+      }
     }
+    requestAnimationFrame(tick);
+  });
+}
+
 
     function appendUserMessage(text) {
       const div = document.createElement('div');
