@@ -55,26 +55,11 @@
       <input
         type="text"
         id="message"
-        placeholder="Type your message..."
+        placeholder="Type your message… (Boog decides on tools automatically)"
         autocomplete="off"
         aria-label="Message input"
         maxlength="1000"
       />
-
-      <!-- Magnifying glass toggle -->
-      <button
-        id="webToggle"
-        class="mode-button"
-        type="button"
-        title="Toggle Web Search mode (Alt+W)"
-        aria-label="Toggle Web Search mode"
-        aria-pressed="false"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M10 3.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0-1.5a8 8 0 0 0-6.32 12.9l-2.59 2.6a1 1 0 1 0 1.42 1.4l2.58-2.58A8 8 0 1 0 10 2Z"/>
-        </svg>
-        <span class="mode-badge" aria-hidden="true">WS</span>
-      </button>
 
       <button
         id="sendBtn"
@@ -96,33 +81,11 @@
     const chat = document.getElementById('chat');
     const messageInput = document.getElementById('message');
     const sendBtn = document.getElementById('sendBtn');
-    const webToggle = document.getElementById('webToggle');
 
     let isTyping = false;
-    let currentMode = 'ai'; // default
-
-    document.addEventListener('keydown', (e) => {
-      if (e.altKey && (e.key === 'w' || e.key === 'W')) {
-        e.preventDefault();
-        toggleWebMode();
-      }
-    });
 
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', handleKeyPress);
-    webToggle.addEventListener('click', toggleWebMode);
-
-    function toggleWebMode() {
-      const isActive = webToggle.classList.toggle('active');
-      webToggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      currentMode = isActive ? 'web-search' : 'ai';
-      messageInput.placeholder = isActive
-        ? 'Search the web… (Alt+W to switch back)'
-        : 'Type your message…';
-      webToggle.title = isActive
-        ? 'Web Search: ON (Alt+W to turn off)'
-        : 'Toggle Web Search mode (Alt+W)';
-    }
 
     function handleKeyPress(e) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -207,7 +170,6 @@
       sendBtn.disabled = loading;
       sendBtn.classList.toggle('loading', loading);
       messageInput.disabled = loading;
-      webToggle.disabled = loading;
       if (loading) {
         sendBtn.setAttribute('aria-label', 'Sending message...');
       } else {
@@ -236,7 +198,7 @@
         const response = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, mode: currentMode })
+          body: JSON.stringify({ message })
         });
 
         if (!response.ok) throw new Error('Network response was not ok');
@@ -255,7 +217,9 @@
     }
 
     window.addEventListener('load', () => {
-      setTimeout(() => { appendBotMessage('Hey there! I\'m Boog!'); }, 500);
+      setTimeout(() => {
+        appendBotMessage('Hey there! I\'m Boog! I\'ll decide when to search the web or read project files to help you best.');
+      }, 500);
     });
 
     messageInput.addEventListener('input', function () {
