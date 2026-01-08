@@ -698,6 +698,219 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
+    /* ========== Agent Steps & Reasoning ========== */
+    .reasoning-steps {
+      margin: 1rem 0;
+      padding: 1rem;
+      background: var(--bg-warm);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+
+    .steps-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps-title {
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .steps-collapse-all {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.625rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .steps-collapse-all:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Individual Step Styles */
+    .step-thinking,
+    .step-tool-call {
+      margin: 0.5rem 0;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .step-thinking:hover,
+    .step-tool-call:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      user-select: none;
+    }
+
+    .step-header:hover {
+      background: var(--accent-soft);
+    }
+
+    .step-icon {
+      font-size: 1.125rem;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      flex: 1;
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+    }
+
+    .step-status {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .step-status.running {
+      background: rgba(255, 193, 7, 0.1);
+      color: #ff9800;
+    }
+
+    .step-status.complete {
+      background: rgba(76, 175, 80, 0.1);
+      color: #4caf50;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .check {
+      font-size: 0.875rem;
+    }
+
+    .step-toggle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .step-toggle:hover {
+      color: var(--accent);
+    }
+
+    .step-toggle.expanded {
+      transform: rotate(180deg);
+    }
+
+    .step-toggle svg {
+      transition: transform 0.2s ease;
+    }
+
+    .step-content {
+      padding: 0 0.75rem 0.75rem 0.75rem;
+      max-height: 1000px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .step-content.collapsed {
+      max-height: 0;
+      padding: 0 0.75rem;
+    }
+
+    .step-content p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    /* Tool specific styles */
+    .tool-arguments,
+    .tool-result {
+      margin: 0.5rem 0;
+    }
+
+    .tool-arguments strong,
+    .tool-result strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .tool-arguments pre,
+    .tool-result pre {
+      background: var(--bg-base);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem;
+      margin: 0;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+
+    .tool-arguments code,
+    .tool-result code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    /* Dark mode adjustments for new components */
+    @media (prefers-color-scheme: dark) {
+      .step-status.running {
+        background: rgba(255, 193, 7, 0.15);
+      }
+
+      .step-status.complete {
+        background: rgba(76, 175, 80, 0.15);
+      }
+    }
   </style>
 
   <script>
@@ -806,6 +1019,184 @@
 
     let isTyping = false;
     let currentMode = 'ai';
+    let currentSessionId = null;
+    let currentConversationId = null;
+
+    // ========== Session Management ==========
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function getSessionId() {
+      if (!currentSessionId) {
+        currentSessionId = localStorage.getItem('boog_session_id');
+        if (!currentSessionId) {
+          currentSessionId = generateUUID();
+          localStorage.setItem('boog_session_id', currentSessionId);
+        }
+      }
+      return currentSessionId;
+    }
+
+    function getConversationId() {
+      if (!currentConversationId) {
+        currentConversationId = sessionStorage.getItem('boog_conversation_id');
+        if (!currentConversationId) {
+          currentConversationId = generateUUID();
+          sessionStorage.setItem('boog_conversation_id', currentConversationId);
+        }
+      }
+      return currentConversationId;
+    }
+
+    function clearConversation() {
+      // Generate new conversation ID
+      currentConversationId = generateUUID();
+      sessionStorage.setItem('boog_conversation_id', currentConversationId);
+
+      // Clear UI
+      chat.innerHTML = '';
+      emptyState.style.display = 'flex';
+
+      console.log('Conversation cleared, new ID:', currentConversationId);
+    }
+
+    // ========== UI Component Creation ==========
+    function getToolIcon(toolName) {
+      const icons = {
+        'web_search': '🔍',
+        'read_file': '📄',
+        'write_file': '✏️',
+        'list_files': '📁'
+      };
+      return icons[toolName] || '🔧';
+    }
+
+    function createThinkingComponent(content) {
+      const div = document.createElement('div');
+      div.className = 'step-thinking';
+      div.innerHTML = `
+        <div class="step-header">
+          <span class="step-icon">🤔</span>
+          <span class="step-title">Thinking</span>
+          <button class="step-toggle" aria-label="Toggle thinking details">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="step-content collapsed">
+          <p>${escapeHtml(content)}</p>
+        </div>
+      `;
+
+      // Toggle functionality
+      const toggle = div.querySelector('.step-toggle');
+      const contentEl = div.querySelector('.step-content');
+      toggle.addEventListener('click', () => {
+        contentEl.classList.toggle('collapsed');
+        toggle.classList.toggle('expanded');
+      });
+
+      return div;
+    }
+
+    function createToolCallComponent(toolName, args, result = null) {
+      const div = document.createElement('div');
+      div.className = 'step-tool-call';
+
+      const status = result ? 'complete' : 'running';
+      const icon = getToolIcon(toolName);
+
+      div.innerHTML = `
+        <div class="step-header">
+          <span class="step-icon">${icon}</span>
+          <span class="step-title">Using ${toolName}</span>
+          <span class="step-status ${status}">
+            ${status === 'running' ?
+              '<span class="spinner"></span>' :
+              '<span class="check">✓</span>'}
+          </span>
+          <button class="step-toggle" aria-label="Toggle tool details">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="step-content collapsed">
+          <div class="tool-arguments">
+            <strong>Input:</strong>
+            <pre><code>${escapeHtml(JSON.stringify(args, null, 2))}</code></pre>
+          </div>
+          ${result ? `
+            <div class="tool-result">
+              <strong>Output:</strong>
+              <pre><code>${escapeHtml(result)}</code></pre>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      // Toggle functionality
+      const toggle = div.querySelector('.step-toggle');
+      const contentEl = div.querySelector('.step-content');
+      toggle.addEventListener('click', () => {
+        contentEl.classList.toggle('collapsed');
+        toggle.classList.toggle('expanded');
+      });
+
+      return div;
+    }
+
+    function updateToolCallResult(toolCallElement, result) {
+      const statusEl = toolCallElement.querySelector('.step-status');
+      statusEl.className = 'step-status complete';
+      statusEl.innerHTML = '<span class="check">✓</span>';
+
+      const contentEl = toolCallElement.querySelector('.step-content');
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'tool-result';
+      resultDiv.innerHTML = `
+        <strong>Output:</strong>
+        <pre><code>${escapeHtml(result)}</code></pre>
+      `;
+      contentEl.appendChild(resultDiv);
+    }
+
+    function createStepsContainer() {
+      const div = document.createElement('div');
+      div.className = 'reasoning-steps';
+      div.innerHTML = `
+        <div class="steps-header">
+          <span class="steps-title">Reasoning & Actions</span>
+          <button class="steps-collapse-all">Collapse All</button>
+        </div>
+        <div class="steps-list"></div>
+      `;
+
+      // Collapse all functionality
+      div.querySelector('.steps-collapse-all').addEventListener('click', (e) => {
+        const button = e.target;
+        const allContents = div.querySelectorAll('.step-content');
+        const isCollapsing = button.textContent === 'Collapse All';
+
+        allContents.forEach(content => {
+          if (isCollapsing) {
+            content.classList.add('collapsed');
+          } else {
+            content.classList.remove('collapsed');
+          }
+        });
+
+        button.textContent = isCollapsing ? 'Expand All' : 'Collapse All';
+      });
+
+      return div;
+    }
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
@@ -1007,12 +1398,19 @@
       messageInput.style.height = 'auto';
       setLoading(true);
 
+      // Get session IDs
+      const sessionId = getSessionId();
+      const conversationId = getConversationId();
+
+      // Create bot message container
       const botMsgDiv = document.createElement('div');
       botMsgDiv.className = 'msg boog';
       botMsgDiv.innerHTML = `
         <div class="msg-header">
           <span class="msg-avatar">😼</span>
           <span>Boog</span>
+          <span>·</span>
+          <span>${getTimestamp()}</span>
         </div>
         <div class="msg-content"></div>
       `;
@@ -1024,53 +1422,200 @@
       scrollToBottom();
 
       try {
-        const response = await fetch('/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, mode: currentMode })
-        });
-
-        if (!response.ok) throw new Error('Network error');
-
-        const data = await response.json();
-        const responseText = data.response ?? 'No response.';
-
-        contentEl.innerHTML = '';
-        
-        // Add actions after content
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'msg-actions';
-        actionsDiv.innerHTML = `
-          <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-            </svg>
-          </button>
-        `;
-        
-        await typeResponse(contentEl, '🐱 ' + responseText);
-        
-        botMsgDiv.appendChild(actionsDiv);
-        actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
-        
-        // Update timestamp
-        const headerEl = botMsgDiv.querySelector('.msg-header');
-        headerEl.innerHTML = `
-          <span class="msg-avatar">😼</span>
-          <span>Boog</span>
-          <span>·</span>
-          <span>${getTimestamp()}</span>
-        `;
-
+        // Try streaming first
+        await sendMessageStreaming(message, sessionId, conversationId, botMsgDiv, contentEl);
       } catch (error) {
-        console.error('Error:', error);
-        contentEl.innerHTML = '';
-        await typeResponse(contentEl, '🐱 Oops! Something went wrong. Please try again.');
+        console.error('Streaming failed, falling back to non-streaming:', error);
+        // Fallback to non-streaming
+        await sendMessageNonStreaming(message, sessionId, conversationId, contentEl);
       } finally {
         setLoading(false);
         messageInput.focus();
       }
+    }
+
+    async function sendMessageStreaming(message, sessionId, conversationId, botMsgDiv, contentEl) {
+      const stepsContainer = createStepsContainer();
+      const stepsList = stepsContainer.querySelector('.steps-list');
+
+      // Build EventSource URL
+      const url = `/chat?stream=true`;
+
+      // Since EventSource doesn't support POST, we need to use fetch with ReadableStream
+      // Or use a different approach - let's use fetch for streaming
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          conversation_id: conversationId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let responseText = '';
+      let currentToolCall = null;
+      let buffer = '';
+
+      contentEl.innerHTML = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep the last incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6);
+            if (dataStr === '[DONE]') break;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              switch(data.type) {
+                case 'thinking':
+                  const thinkingStep = createThinkingComponent(data.content);
+                  stepsList.appendChild(thinkingStep);
+                  scrollToBottom();
+                  break;
+
+                case 'tool_call':
+                  currentToolCall = createToolCallComponent(data.tool, data.arguments);
+                  stepsList.appendChild(currentToolCall);
+                  scrollToBottom();
+                  break;
+
+                case 'tool_result':
+                  if (currentToolCall) {
+                    updateToolCallResult(currentToolCall, data.result);
+                  }
+                  scrollToBottom();
+                  break;
+
+                case 'content_delta':
+                  responseText += data.content;
+                  contentEl.textContent = '🐱 ' + responseText;
+                  scrollToBottom();
+                  break;
+
+                case 'done':
+                  // Render final markdown
+                  if (responseText) {
+                    const html = marked.parse('🐱 ' + responseText);
+                    contentEl.innerHTML = DOMPurify.sanitize(html);
+
+                    // Add steps container if there were steps
+                    if (stepsList.children.length > 0) {
+                      contentEl.insertBefore(stepsContainer, contentEl.firstChild);
+                    }
+
+                    if (window.MathJax?.typesetPromise) {
+                      MathJax.typesetPromise([contentEl]).catch(err => console.error(err.message));
+                    }
+                  }
+
+                  // Add copy button
+                  const actionsDiv = document.createElement('div');
+                  actionsDiv.className = 'msg-actions';
+                  actionsDiv.innerHTML = `
+                    <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                      </svg>
+                    </button>
+                  `;
+                  botMsgDiv.appendChild(actionsDiv);
+                  actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
+                  return; // Done
+
+                case 'error':
+                  contentEl.textContent = '🐱 ' + (data.message || 'An error occurred');
+                  return;
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
+    }
+
+    async function sendMessageNonStreaming(message, sessionId, conversationId, contentEl) {
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          conversation_id: conversationId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const responseText = data.response || 'No response.';
+      const steps = data.steps || [];
+
+      contentEl.innerHTML = '';
+
+      // Create steps container if there are steps
+      if (steps.length > 0) {
+        const stepsContainer = createStepsContainer();
+        const stepsList = stepsContainer.querySelector('.steps-list');
+
+        for (const step of steps) {
+          let stepEl;
+          switch(step.type) {
+            case 'thinking':
+              stepEl = createThinkingComponent(step.content);
+              break;
+            case 'tool_call':
+              // Find matching result
+              const resultStep = steps.find(
+                s => s.type === 'tool_result' && s.tool === step.tool
+              );
+              stepEl = createToolCallComponent(
+                step.tool,
+                step.arguments,
+                resultStep ? resultStep.result : null
+              );
+              break;
+          }
+          if (stepEl) stepsList.appendChild(stepEl);
+        }
+
+        contentEl.appendChild(stepsContainer);
+      }
+
+      // Type response
+      await typeResponse(contentEl, '🐱 ' + responseText);
+
+      // Add copy button
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'msg-actions';
+      actionsDiv.innerHTML = `
+        <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+        </button>
+      `;
+      contentEl.parentElement.appendChild(actionsDiv);
+      actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
     }
   </script>
 </body>

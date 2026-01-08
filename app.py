@@ -1,161 +1,194 @@
-import os, json, logging
-from typing import List, TypedDict, Optional
-
-try:
-    import requests
-    _HAVE_REQUESTS = True
-except ModuleNotFoundError:
-    import urllib.request, urllib.error
-    _HAVE_REQUESTS = False
+import os
+import logging
+from datetime import datetime
+from functools import wraps
 
 from groq import Groq
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from apscheduler.schedulers.background import BackgroundScheduler
 
+# Import our new modules
+from tools import create_default_registry
+from session import SessionManager
+from agent import generate_agent_response, stream_agent_response
+
+
+# Initialize Flask app
 app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
 
-# ---------- Models ----------
-class SearchItem(TypedDict):
-    title: str
-    url: str
-    snippet: str
+# Initialize global components
+tool_registry = create_default_registry()
+session_manager = SessionManager()
 
-# ---------- HTTP helper ----------
-def _post_json(url: str, headers: dict, payload: dict) -> dict:
-    if _HAVE_REQUESTS:
-        r = requests.post(url, headers=headers, json=payload, timeout=12)
-        r.raise_for_status()
-        return r.json()
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=12) as resp:  # nosec
-        return json.loads(resp.read().decode("utf-8"))
+# Get configuration
+SESSION_TIMEOUT = int(os.getenv("BOOG_SESSION_TIMEOUT", 60))  # minutes
 
-# ---------- Tavily search ----------
-def tavily_search(query: str, k: int = 5, depth: str = "basic") -> List[SearchItem]:
-    """
-    depth: 'basic' (1 credit) or 'advanced' (2 credits).
-    """
-    api_key = os.getenv("TAVILY_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("TAVILY_API_KEY not set")
+# ---------- Rate Limiting ----------
+rate_limit_storage = {}
 
-    # Respect ~400 char query limit (hard trim as a guard).
-    q = (query or "").strip()
-    if len(q) > 400:
-        q = q[:400]
+def rate_limit(max_requests=30, window_seconds=60):
+    """Rate limiting decorator to prevent abuse."""
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            payload = request.get_json(silent=True) or {}
+            session_id = payload.get('session_id', 'anonymous')
+            now = datetime.now()
 
-    payload = {
-        "query": q,
-        "search_depth": depth,          # 'basic' or 'advanced'
-        "include_answer": False,        # we let Groq synthesize
-        "include_raw_content": False,
-        "max_results": max(1, min(k, 8)),
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-    data = _post_json("https://api.tavily.com/search", headers, payload)
+            if session_id not in rate_limit_storage:
+                rate_limit_storage[session_id] = []
 
-    items: List[SearchItem] = []
-    for r in data.get("results", [])[:k]:
-        items.append({
-            "title": (r.get("title") or "").strip(),
-            "url": r.get("url") or "",
-            "snippet": (r.get("content") or "").strip()[:500],
-        })
-    return items
+            # Clean old requests
+            from datetime import timedelta
+            rate_limit_storage[session_id] = [
+                ts for ts in rate_limit_storage[session_id]
+                if now - ts < timedelta(seconds=window_seconds)
+            ]
 
-# ---------- Groq LLM ----------
-def _groq() -> Optional[Groq]:
+            if len(rate_limit_storage[session_id]) >= max_requests:
+                return jsonify({
+                    "error": "Rate limit exceeded. Please wait a moment.",
+                    "retry_after": window_seconds
+                }), 429
+
+            rate_limit_storage[session_id].append(now)
+            return f(*args, **kwargs)
+
+        return wrapped
+    return decorator
+
+
+# ---------- Groq Client ----------
+def _groq():
+    """Get Groq client instance."""
     key = os.getenv("GROQ_API_KEY", "")
-    return Groq(api_key=key) if key else None
-
-def generate_ai_response(prompt: str) -> str:  # unchanged pure-LLM path
-    client = _groq()
-    if not client:
-        return "GROQ_API_KEY is not set on the server – AI mode is unavailable."
-    r = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {"role": "system", "content": "You are Boog – concise, helpful."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.6,
-    )
-    return (r.choices[0].message.content or "").strip() or "(No response)"
-
-def answer_with_web_search(query: str, k: int = 5, depth: str = "basic") -> str:
-    try:
-        results = tavily_search(query, k=k, depth=depth)
-    except Exception as exc:
-        app.logger.error("Tavily error: %s", exc)
-        return "Web search is temporarily unavailable."
-
-    if not results:
-        return "No results found."
-
-    # Build grounded prompt
-    sources_txt = []
-    for i, r in enumerate(results, 1):
-        title = r["title"] or r["url"]
-        sources_txt.append(
-            f"[{i}] {title}\nURL: {r['url']}\nSnippet: {r['snippet']}"
-        )
-    prompt = (
-        "Use the numbered sources to answer. Cite like [1], [2]. "
-        "Only include supported claims; if unclear, say so.\n\n"
-        f"USER QUESTION:\n{query}\n\nSOURCES:\n" + "\n\n".join(sources_txt)
-    )
-
-    client = _groq()
-    if not client:
-        return "GROQ_API_KEY is not set on the server – AI mode is unavailable."
-
-    r = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {"role": "system", "content": "Ground answers in the sources and cite."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-    )
-    answer = (r.choices[0].message.content or "").strip()
-
-    links = "\n".join(
-        f"- [{i}] {it['title'] or it['url']} — {it['url']}"
-        for i, it in enumerate(results, 1)
-    )
-    return f"{answer}\n\n---\n**Sources (links):**\n{links}"
+    if not key:
+        return None
+    return Groq(api_key=key)
 
 
-# ---------- Flask Routes ----------------------------------------------------
+# ---------- Session Cleanup ----------
+def cleanup_sessions():
+    """Periodic task to clean up expired sessions."""
+    count = session_manager.cleanup_expired_sessions(timeout_minutes=SESSION_TIMEOUT)
+    if count > 0:
+        app.logger.info(f"Cleaned up {count} expired sessions")
+
+# Setup background scheduler for session cleanup
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=cleanup_sessions, trigger="interval", minutes=15)
+scheduler.start()
+
+
+# ---------- Flask Routes ----------
 @app.route("/")
 def index():
+    """Serve main chat interface."""
     return render_template("index.html")
 
 
 @app.route("/chat", methods=["POST"])
+@rate_limit(max_requests=30, window_seconds=60)
 def chat():
+    """
+    Main chat endpoint with agent capabilities.
+
+    Supports both streaming (query param stream=true) and non-streaming modes.
+    """
     payload = request.get_json(silent=True) or {}
-    user_input: str = (payload.get("message") or "").strip()
-    mode: str = (payload.get("mode") or "ai").lower()  # "ai" | "web"
+    user_message = (payload.get("message") or "").strip()
+    session_id = payload.get("session_id")
+    conversation_id = payload.get("conversation_id")
 
-    if not user_input:
-        return jsonify(response="Please provide a message.")
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
 
-    if mode in ("web", "web-search", "search"):
-        # You can flip to depth="advanced" for tougher queries (costs 2 credits).
-        resp = answer_with_web_search(user_input, k=5, depth="basic")
-    else:
-        resp = generate_ai_response(user_input)
+    # Check if streaming is requested via query param
+    stream_mode = request.args.get('stream', 'false').lower() == 'true'
 
-    return jsonify(response=resp)
+    # Get Groq client
+    groq_client = _groq()
+    if not groq_client:
+        return jsonify({
+            "error": "GROQ_API_KEY is not configured on the server"
+        }), 503
+
+    # Get or create session and conversation
+    session = session_manager.get_or_create_session(session_id)
+    conversation = session.get_conversation(conversation_id)
+
+    # Add user message to conversation
+    conversation.add_message("user", user_message)
+
+    app.logger.info(f"Processing message in session {session.id}, conversation {conversation.id}")
+
+    # Handle streaming mode
+    if stream_mode:
+        def generate():
+            try:
+                for event in stream_agent_response(conversation, tool_registry, groq_client):
+                    yield event
+            except Exception as e:
+                app.logger.error(f"Streaming error: {e}", exc_info=True)
+                yield f"data: {{\"type\": \"error\", \"message\": \"Streaming failed\"}}\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+
+    # Handle non-streaming mode
+    try:
+        response_data = generate_agent_response(conversation, tool_registry, groq_client)
+        return jsonify(response_data)
+    except Exception as e:
+        app.logger.error(f"Agent error: {e}", exc_info=True)
+        return jsonify({
+            "error": f"Failed to generate response: {str(e)}",
+            "session_id": session.id,
+            "conversation_id": conversation.id
+        }), 500
 
 
-# ---------- Entrypoint ------------------------------------------------------
+@app.route("/session/clear", methods=["POST"])
+def clear_session():
+    """Clear a conversation (creates new conversation ID)."""
+    payload = request.get_json(silent=True) or {}
+    session_id = payload.get("session_id")
+    conversation_id = payload.get("conversation_id")
+
+    if session_id and conversation_id:
+        session = session_manager.get_or_create_session(session_id)
+        session.delete_conversation(conversation_id)
+        app.logger.info(f"Cleared conversation {conversation_id}")
+        return jsonify({"success": True})
+
+    return jsonify({"error": "Missing session_id or conversation_id"}), 400
+
+
+@app.route("/stats", methods=["GET"])
+def stats():
+    """Get system statistics (for debugging)."""
+    return jsonify(session_manager.get_stats())
+
+
+# ---------- Shutdown Handler ----------
+@app.teardown_appcontext
+def shutdown_scheduler(exception=None):
+    """Shutdown scheduler on app teardown."""
+    if scheduler.running:
+        scheduler.shutdown()
+
+
+# ---------- Entrypoint ----------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # Setting threaded=True plays nicer with Groq and HTTP requests concurrency
+    app.logger.info(f"Starting Boog on port {port}")
+    app.logger.info(f"Workspace directory: {os.getenv('BOOG_WORKSPACE_DIR', '/tmp/boog_workspace')}")
+    app.logger.info(f"Session timeout: {SESSION_TIMEOUT} minutes")
     app.run(host="0.0.0.0", port=port, threaded=True)
