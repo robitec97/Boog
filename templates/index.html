@@ -892,6 +892,8 @@
       margin: 0;
       font-size: 0.75rem;
       overflow-x: auto;
+      overflow-y: auto;
+      max-height: 200px;
       border: 1px solid var(--border);
     }
 
@@ -899,6 +901,40 @@
     .tool-result code {
       font-family: 'JetBrains Mono', monospace;
       color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Error result styling */
+    .tool-result-error {
+      border-left: 3px solid #f44336;
+      padding-left: 0.5rem;
+    }
+
+    .tool-result-error strong {
+      color: #f44336;
+    }
+
+    .tool-result-error pre {
+      background: rgba(244, 67, 54, 0.05);
+      border-color: rgba(244, 67, 54, 0.2);
+    }
+
+    .tool-result-pending {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 0.875rem;
+      padding: 0.5rem 0;
+    }
+
+    /* Error status styling */
+    .step-status.error {
+      background: rgba(244, 67, 54, 0.1);
+      color: #f44336;
+    }
+
+    .error-icon {
+      font-weight: bold;
     }
 
     /* Dark mode adjustments for new components */
@@ -909,6 +945,14 @@
 
       .step-status.complete {
         background: rgba(76, 175, 80, 0.15);
+      }
+
+      .step-status.error {
+        background: rgba(244, 67, 54, 0.15);
+      }
+
+      .tool-result-error pre {
+        background: rgba(244, 67, 54, 0.1);
       }
     }
   </style>
@@ -1109,35 +1153,47 @@
       const div = document.createElement('div');
       div.className = 'step-tool-call';
 
-      const status = result ? 'complete' : 'running';
+      // Check if result is an error
+      const isError = result && (
+        result.toLowerCase().startsWith('error:') ||
+        result.toLowerCase().includes('failed') ||
+        result.toLowerCase().includes('not configured')
+      );
+
+      const status = result ? (isError ? 'error' : 'complete') : 'running';
       const icon = getToolIcon(toolName);
+
+      // Format the tool name for display
+      const displayName = toolName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
       div.innerHTML = `
         <div class="step-header">
           <span class="step-icon">${icon}</span>
-          <span class="step-title">Using ${toolName}</span>
+          <span class="step-title">${displayName}</span>
           <span class="step-status ${status}">
             ${status === 'running' ?
               '<span class="spinner"></span>' :
+              status === 'error' ?
+              '<span class="error-icon">✗</span>' :
               '<span class="check">✓</span>'}
           </span>
-          <button class="step-toggle" aria-label="Toggle tool details">
+          <button class="step-toggle expanded" aria-label="Toggle tool details">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
         </div>
-        <div class="step-content collapsed">
+        <div class="step-content">
           <div class="tool-arguments">
             <strong>Input:</strong>
             <pre><code>${escapeHtml(JSON.stringify(args, null, 2))}</code></pre>
           </div>
           ${result ? `
-            <div class="tool-result">
-              <strong>Output:</strong>
+            <div class="tool-result ${isError ? 'tool-result-error' : ''}">
+              <strong>${isError ? 'Error:' : 'Output:'}</strong>
               <pre><code>${escapeHtml(result)}</code></pre>
             </div>
-          ` : ''}
+          ` : '<div class="tool-result-pending">Executing...</div>'}
         </div>
       `;
 
@@ -1445,34 +1501,61 @@
         // Clear typing indicator
         contentEl.innerHTML = '';
 
-        // Create steps container if there are tool calls
+        // Create steps container if there are tool calls or errors
         const toolSteps = steps.filter(s => s.type === 'tool_call');
-        if (toolSteps.length > 0) {
+        const hasSteps = toolSteps.length > 0;
+
+        if (hasSteps) {
           const stepsContainer = createStepsContainer();
           const stepsList = stepsContainer.querySelector('.steps-list');
 
-          for (const step of steps) {
+          // Build a map of tool_call index to tool_result
+          // Steps are ordered: tool_call, tool_result, tool_call, tool_result, ...
+          const toolCallIndices = [];
+          const toolResults = {};
+
+          steps.forEach((step, idx) => {
+            if (step.type === 'tool_call') {
+              toolCallIndices.push(idx);
+            } else if (step.type === 'tool_result') {
+              // Find the most recent tool_call before this result
+              const callIdx = toolCallIndices.filter(i => i < idx).pop();
+              if (callIdx !== undefined) {
+                toolResults[callIdx] = step.result;
+              }
+            }
+          });
+
+          steps.forEach((step, idx) => {
             let stepEl;
             switch(step.type) {
               case 'thinking':
                 stepEl = createThinkingComponent(step.content);
                 break;
               case 'tool_call':
-                // Find matching result
-                const resultStep = steps.find(
-                  s => s.type === 'tool_result' && s.tool === step.tool
-                );
+                // Get the matched result for this specific tool call
+                const result = toolResults[idx] || null;
                 stepEl = createToolCallComponent(
                   step.tool,
                   step.arguments,
-                  resultStep ? resultStep.result : null
+                  result
                 );
                 break;
             }
             if (stepEl) stepsList.appendChild(stepEl);
-          }
+          });
 
           contentEl.appendChild(stepsContainer);
+
+          // Auto-expand if only 1-2 tool calls for better visibility
+          if (toolSteps.length <= 2) {
+            stepsContainer.querySelectorAll('.step-content').forEach(el => {
+              el.classList.remove('collapsed');
+            });
+            stepsContainer.querySelectorAll('.step-toggle').forEach(el => {
+              el.classList.add('expanded');
+            });
+          }
         }
 
         // Create separate element for response text (so steps aren't overwritten)
