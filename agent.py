@@ -73,6 +73,7 @@ def generate_agent_response(
         Dict with response, steps, session_id, conversation_id
     """
     steps = []
+    executed_tool_calls = set()  # Track (tool_name, args_hash) to prevent duplicates
 
     # Build messages with system prompt
     messages = [
@@ -117,13 +118,38 @@ def generate_agent_response(
                     ]
                 })
 
+                # Track if any tools were actually executed this iteration
+                tools_executed_this_iteration = False
+
                 # Execute each tool
                 for tool_call in message.tool_calls:
                     tool_name = tool_call.function.name
                     try:
                         arguments = json.loads(tool_call.function.arguments)
                     except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse arguments for {tool_name}")
                         arguments = {}
+
+                    # Create a key for de-duplication
+                    try:
+                        args_key = json.dumps(arguments, sort_keys=True)
+                    except (TypeError, ValueError):
+                        args_key = str(arguments)
+                    tool_key = (tool_name, args_key)
+
+                    # Skip duplicate tool calls
+                    if tool_key in executed_tool_calls:
+                        logger.warning(f"Skipping duplicate tool call: {tool_name}")
+                        # Still need to add a placeholder result for the API
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": "(Already executed this tool with same arguments)"
+                        })
+                        continue
+
+                    executed_tool_calls.add(tool_key)
+                    tools_executed_this_iteration = True
 
                     # Record tool call step
                     steps.append({
@@ -134,6 +160,10 @@ def generate_agent_response(
 
                     # Execute tool
                     result = tool_registry.execute_tool(tool_name, arguments)
+
+                    # Limit result size to prevent message bloat
+                    if len(result) > 10000:
+                        result = result[:10000] + "\n... (truncated)"
 
                     # Record tool result step
                     steps.append({
@@ -148,6 +178,11 @@ def generate_agent_response(
                         "tool_call_id": tool_call.id,
                         "content": result
                     })
+
+                # If no new tools were executed, break to prevent infinite loop
+                if not tools_executed_this_iteration:
+                    logger.warning("No new tools executed, breaking loop")
+                    break
 
                 # Continue loop to get synthesis
                 continue
@@ -224,6 +259,7 @@ def stream_agent_response(
     ]
 
     final_response = ""
+    executed_tool_calls = set()  # Track (tool_name, args_hash) to prevent duplicates
 
     try:
         # Tool execution loop
@@ -298,19 +334,48 @@ def stream_agent_response(
                     ]
                 })
 
+                # Track if any tools were actually executed this iteration
+                tools_executed_this_iteration = False
+
                 # Execute each tool
                 for tool_call in tool_calls:
                     tool_name = tool_call["function"]["name"]
                     try:
                         arguments = json.loads(tool_call["function"]["arguments"])
                     except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse arguments for {tool_name}")
                         arguments = {}
+
+                    # Create a key for de-duplication
+                    try:
+                        args_key = json.dumps(arguments, sort_keys=True)
+                    except (TypeError, ValueError):
+                        args_key = str(arguments)
+                    tool_key = (tool_name, args_key)
+
+                    # Skip duplicate tool calls
+                    if tool_key in executed_tool_calls:
+                        logger.warning(f"Skipping duplicate tool call: {tool_name}")
+                        # Still need to add a placeholder result for the API
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": "(Already executed this tool with same arguments)"
+                        })
+                        continue
+
+                    executed_tool_calls.add(tool_key)
+                    tools_executed_this_iteration = True
 
                     # Send tool call event
                     yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name, 'arguments': arguments})}\n\n"
 
                     # Execute tool
                     result = tool_registry.execute_tool(tool_name, arguments)
+
+                    # Limit result size to prevent message bloat
+                    if len(result) > 10000:
+                        result = result[:10000] + "\n... (truncated)"
 
                     # Send tool result event
                     yield f"data: {json.dumps({'type': 'tool_result', 'tool': tool_name, 'result': result})}\n\n"
@@ -321,6 +386,11 @@ def stream_agent_response(
                         "tool_call_id": tool_call["id"],
                         "content": result
                     })
+
+                # If no new tools were executed, break to prevent infinite loop
+                if not tools_executed_this_iteration:
+                    logger.warning("No new tools executed, breaking loop")
+                    break
 
                 # Continue to next iteration
                 continue

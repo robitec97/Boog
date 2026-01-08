@@ -1422,201 +1422,91 @@
       scrollToBottom();
 
       try {
-        // Try streaming first
-        await sendMessageStreaming(message, sessionId, conversationId, botMsgDiv, contentEl);
+        // Use non-streaming for reliability
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            session_id: sessionId,
+            conversation_id: conversationId
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.response || 'No response.';
+        const steps = data.steps || [];
+
+        // Clear typing indicator
+        contentEl.innerHTML = '';
+
+        // Create steps container if there are tool calls
+        const toolSteps = steps.filter(s => s.type === 'tool_call');
+        if (toolSteps.length > 0) {
+          const stepsContainer = createStepsContainer();
+          const stepsList = stepsContainer.querySelector('.steps-list');
+
+          for (const step of steps) {
+            let stepEl;
+            switch(step.type) {
+              case 'thinking':
+                stepEl = createThinkingComponent(step.content);
+                break;
+              case 'tool_call':
+                // Find matching result
+                const resultStep = steps.find(
+                  s => s.type === 'tool_result' && s.tool === step.tool
+                );
+                stepEl = createToolCallComponent(
+                  step.tool,
+                  step.arguments,
+                  resultStep ? resultStep.result : null
+                );
+                break;
+            }
+            if (stepEl) stepsList.appendChild(stepEl);
+          }
+
+          contentEl.appendChild(stepsContainer);
+        }
+
+        // Create separate element for response text (so steps aren't overwritten)
+        const responseEl = document.createElement('div');
+        responseEl.className = 'response-text';
+        contentEl.appendChild(responseEl);
+
+        // Type response with markdown into the response element
+        await typeResponse(responseEl, '🐱 ' + responseText);
+
+        // Add copy button
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'msg-actions';
+        actionsDiv.innerHTML = `
+          <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+          </button>
+        `;
+        botMsgDiv.appendChild(actionsDiv);
+        actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
+
       } catch (error) {
-        console.error('Streaming failed, falling back to non-streaming:', error);
-        // Fallback to non-streaming
-        await sendMessageNonStreaming(message, sessionId, conversationId, contentEl);
+        console.error('Request failed:', error);
+        contentEl.innerHTML = '';
+        contentEl.textContent = '🐱 ' + (error.message || 'Oops! Something went wrong. Please try again.');
       } finally {
         setLoading(false);
         messageInput.focus();
       }
     }
 
-    async function sendMessageStreaming(message, sessionId, conversationId, botMsgDiv, contentEl) {
-      const stepsContainer = createStepsContainer();
-      const stepsList = stepsContainer.querySelector('.steps-list');
-
-      // Build EventSource URL
-      const url = `/chat?stream=true`;
-
-      // Since EventSource doesn't support POST, we need to use fetch with ReadableStream
-      // Or use a different approach - let's use fetch for streaming
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-          conversation_id: conversationId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let responseText = '';
-      let currentToolCall = null;
-      let buffer = '';
-
-      contentEl.innerHTML = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep the last incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
-            if (dataStr === '[DONE]') break;
-
-            try {
-              const data = JSON.parse(dataStr);
-
-              switch(data.type) {
-                case 'thinking':
-                  const thinkingStep = createThinkingComponent(data.content);
-                  stepsList.appendChild(thinkingStep);
-                  scrollToBottom();
-                  break;
-
-                case 'tool_call':
-                  currentToolCall = createToolCallComponent(data.tool, data.arguments);
-                  stepsList.appendChild(currentToolCall);
-                  scrollToBottom();
-                  break;
-
-                case 'tool_result':
-                  if (currentToolCall) {
-                    updateToolCallResult(currentToolCall, data.result);
-                  }
-                  scrollToBottom();
-                  break;
-
-                case 'content_delta':
-                  responseText += data.content;
-                  contentEl.textContent = '🐱 ' + responseText;
-                  scrollToBottom();
-                  break;
-
-                case 'done':
-                  // Render final markdown
-                  if (responseText) {
-                    const html = marked.parse('🐱 ' + responseText);
-                    contentEl.innerHTML = DOMPurify.sanitize(html);
-
-                    // Add steps container if there were steps
-                    if (stepsList.children.length > 0) {
-                      contentEl.insertBefore(stepsContainer, contentEl.firstChild);
-                    }
-
-                    if (window.MathJax?.typesetPromise) {
-                      MathJax.typesetPromise([contentEl]).catch(err => console.error(err.message));
-                    }
-                  }
-
-                  // Add copy button
-                  const actionsDiv = document.createElement('div');
-                  actionsDiv.className = 'msg-actions';
-                  actionsDiv.innerHTML = `
-                    <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                      </svg>
-                    </button>
-                  `;
-                  botMsgDiv.appendChild(actionsDiv);
-                  actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
-                  return; // Done
-
-                case 'error':
-                  contentEl.textContent = '🐱 ' + (data.message || 'An error occurred');
-                  return;
-              }
-            } catch (e) {
-              console.error('Failed to parse SSE data:', e);
-            }
-          }
-        }
-      }
-    }
-
-    async function sendMessageNonStreaming(message, sessionId, conversationId, contentEl) {
-      const response = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          session_id: sessionId,
-          conversation_id: conversationId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const responseText = data.response || 'No response.';
-      const steps = data.steps || [];
-
-      contentEl.innerHTML = '';
-
-      // Create steps container if there are steps
-      if (steps.length > 0) {
-        const stepsContainer = createStepsContainer();
-        const stepsList = stepsContainer.querySelector('.steps-list');
-
-        for (const step of steps) {
-          let stepEl;
-          switch(step.type) {
-            case 'thinking':
-              stepEl = createThinkingComponent(step.content);
-              break;
-            case 'tool_call':
-              // Find matching result
-              const resultStep = steps.find(
-                s => s.type === 'tool_result' && s.tool === step.tool
-              );
-              stepEl = createToolCallComponent(
-                step.tool,
-                step.arguments,
-                resultStep ? resultStep.result : null
-              );
-              break;
-          }
-          if (stepEl) stepsList.appendChild(stepEl);
-        }
-
-        contentEl.appendChild(stepsContainer);
-      }
-
-      // Type response
-      await typeResponse(contentEl, '🐱 ' + responseText);
-
-      // Add copy button
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'msg-actions';
-      actionsDiv.innerHTML = `
-        <button class="msg-action copy-btn" title="Copy" aria-label="Copy message">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-          </svg>
-        </button>
-      `;
-      contentEl.parentElement.appendChild(actionsDiv);
-      actionsDiv.querySelector('.copy-btn').addEventListener('click', () => copyToClipboard(responseText));
-    }
   </script>
 </body>
 </html>

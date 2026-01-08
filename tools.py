@@ -118,12 +118,12 @@ class WebSearchTool(Tool):
         try:
             api_key = os.getenv("TAVILY_API_KEY", "")
             if not api_key:
-                return "Error: Web search is not configured (TAVILY_API_KEY not set)."
+                return "Error: Web search is not configured (TAVILY_API_KEY not set). I cannot search the web right now."
 
             # Trim query to 400 chars
             q = query.strip()[:400]
             if not q:
-                return "Error: Empty search query."
+                return "Error: Empty search query. Please provide a search term."
 
             # Call Tavily API
             payload = {
@@ -137,24 +137,43 @@ class WebSearchTool(Tool):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            data = _post_json("https://api.tavily.com/search", headers, payload)
+
+            try:
+                data = _post_json("https://api.tavily.com/search", headers, payload)
+            except Exception as api_err:
+                error_str = str(api_err).lower()
+                if "401" in error_str or "unauthorized" in error_str:
+                    return "Error: Web search API authentication failed. The API key may be invalid."
+                elif "429" in error_str or "rate limit" in error_str:
+                    return "Error: Web search rate limit exceeded. Please try again in a moment."
+                elif "timeout" in error_str:
+                    return f"Error: Web search timed out for query: {q}. Please try a simpler query."
+                raise  # Re-raise for generic handling
 
             # Format results
             results = []
-            for i, r in enumerate(data.get("results", [])[:num_results], 1):
+            raw_results = data.get("results", [])
+
+            if not raw_results:
+                return f"No results found for: \"{q}\". Try rephrasing your search or using different keywords."
+
+            for i, r in enumerate(raw_results[:num_results], 1):
                 title = r.get("title", "").strip() or "Untitled"
                 url = r.get("url", "")
                 snippet = r.get("content", "").strip()[:500]
-                results.append(f"[{i}] {title}\nURL: {url}\nSnippet: {snippet}")
+
+                # Only include results with valid URLs
+                if url and url.startswith(("http://", "https://")):
+                    results.append(f"[{i}] {title}\nURL: {url}\nSnippet: {snippet}")
 
             if not results:
-                return f"No results found for query: {q}"
+                return f"No valid results found for: \"{q}\". The search returned results but they were invalid."
 
-            return "\n\n".join(results)
+            return f"Search results for \"{q}\":\n\n" + "\n\n".join(results)
 
         except Exception as e:
             logger.error(f"Web search error: {e}", exc_info=True)
-            return f"Error: Web search failed - {str(e)}"
+            return f"Error: Web search failed - {str(e)}. Please try again or rephrase your query."
 
 
 # ---------- File Operations Tools ----------
